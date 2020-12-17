@@ -156,15 +156,15 @@ class Player{
 var player = new Player();
 var slamming = false;
 
-function slam(direction){
+function slam(direction,speed = 20){
     slamming = true;
     player.mode='blue'
     player.gravityDirection = direction;
     if(direction=="up"||direction=='left'){
-        player.yv = -20;
+        player.yv = -speed;
     }
     if(direction=="down"||direction=='right'){
-        player.yv = 20;
+        player.yv = speed;
     }
 }
 
@@ -233,11 +233,13 @@ class AttackManager{
                                     moving = true;
                                 }
                             }
-                            if(player.y>battleBox.y&&player.y + player.h < battleBox.y + battleBox.h){
-                                player.y+=x[5][1]
-                            }
-                            if(player.x>battleBox.x&&player.x + player.w < battleBox.x + battleBox.w){
-                                player.x+=x[5][0]
+                            if(moving&&x[6]){
+                                if(player.y>battleBox.y&&player.y + player.h < battleBox.y + battleBox.h){
+                                    player.y+=x[5][1]
+                                }
+                                if(player.x>battleBox.x&&player.x + player.w < battleBox.x + battleBox.w){
+                                    player.x+=x[5][0]
+                                }
                             }
                         }
                     }
@@ -265,7 +267,7 @@ class AttackManager{
                                     moving = true;
                                 }
                             }
-                            if(moving){
+                            if(moving&&x[6]){
                                 if(player.y>battleBox.y&&player.y + player.h < battleBox.y + battleBox.h){
                                     player.y+=x[5][1]
                                 }
@@ -850,12 +852,49 @@ function main(){
         shakePos[1] = lerp(shakePos[1],0,0.4);
     }
     
-    atk17()
+    atk18()
 
     
 }
 setInterval(main,1000/60);
-
+function atk18(){
+    if(timer>70&&timer<200){
+        battleBox.w=lerp(battleBox.w,100,0.1)
+    }
+    if(timer>200){
+        attackManager.swords=[]
+        battleBox.w=lerp(battleBox.w,500,0.3)
+    }
+    if(timer==1){
+        slam("down")
+        attackManager.spawnSword(battleBox.x+battleBox.w,battleBox.y+battleBox.h/2,10,battleBox.h/2,1170,[-5,0],0)
+        attackManager.spawnSword(battleBox.x-10,battleBox.y,10,battleBox.h/2,1170,[2,0],Math.PI)
+    }
+    if(timer==70){
+        attackManager.spawnAxeSlice(battleBox.x+10,battleBox.y+battleBox.h/2,Math.PI*1.5)
+        slam("left",10)
+    }
+    if(timer>70 &&timer%10==0&&timer<150){
+        num++
+        attackManager.spawnAxeSlice(battleBox.x+8*num,battleBox.y+battleBox.h/2,Math.PI*1.5)
+    }
+    if(timer==10){
+        attackManager.spawnPlatform(battleBox.x+70,-50,10,50,1000,[0,2.5],false,'right')
+        attackManager.spawnPlatform(-50,battleBox.y+battleBox.h/2,50,10,3000,[1,0],false,'bottom')
+    }
+    if(timer==200){
+        slam("up")
+        attackManager.spawnPopupSwords("down",battleBox.h/2-15,600,60)
+        attackManager.spawnPopupSwords("up",15,600,60)
+    }
+    if(timer>250&&timer%65==0&&timer<600){
+        attackManager.spawnArrow(battleBox.x+battleBox.w+50,battleBox.y+battleBox.h/2+15,Math.PI)
+    }
+    if(timer==700){
+        slam('left')
+        attackManager.spawnPopupSwords('right',20,100,60)
+    }
+}
 function atk17(){
     if(timer == 1){
         slam("left")
