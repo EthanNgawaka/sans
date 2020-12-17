@@ -23,6 +23,8 @@ class Player{
         this.sprite = new spriteSheet("heart.png",16,16,1,this.x,this.y,this.w,this.h)
         this.sprite.addState("red",1,1);
         this.sprite.addState("blue",2,1);
+        this.oldx = 0;
+        this.oldy = 0;
 
         //platforming stuff
         this.gravity = 0.13;
@@ -35,6 +37,7 @@ class Player{
 
         this.invisible = false;
         this.rotation = 0;
+        this.xv = 0;
     }
     draw(){
         if(!this.invisible){
@@ -48,8 +51,9 @@ class Player{
     }
     input(){
         var vector = [0,0];
-
-        
+        this.oldx = this.x;
+        this.oldy = this.y;
+        this.xv = 0;
 
         if(checkKey("ArrowUp")){
             vector[1] -= 1;
@@ -77,36 +81,43 @@ class Player{
             this.rotation = 0;
         }
         if(this.mode == "blue"){
-
+            
+            
             if(this.gravityDirection == "down"){
                 this.rotation = 0;
                 if(vector[1] < 0 && this.grounded){
                     this.yv -= this.jumpHeight;
+                    test = true;
+                    this.grounded = false;
                 }
                 if(this.yv < 0 && vector[1] >= 0){
                     this.yv *= 0.5;
                 }
                 
-                this.x += Math.round(vector[0]) * this.speed;
+                this.xv = Math.round(vector[0]) * this.speed;
                 this.yv += this.gravity;
                 this.y += this.yv;
                 this.yv *= 0.99;
             }else if(this.gravityDirection == "up"){
                 this.rotation = Math.PI;
                 if(vector[1] > 0 && this.grounded){
+                    test = true;
+                    this.grounded = false;
                     this.yv += this.jumpHeight;
                 }
                 if(this.yv > 0 && vector[1] <= 0){
                     this.yv *= 0.5;
                 }
                 
-                this.x += Math.round(vector[0]) * this.speed;
+                this.xv = Math.round(vector[0]) * this.speed;
                 this.yv += -this.gravity;
                 this.y += this.yv;
                 this.yv *= 0.99;
             }else if(this.gravityDirection == "left"){
                 this.rotation = Math.PI/2;
                 if(vector[0] > 0 && this.grounded){
+                    test = true;
+                    this.grounded = false;
                     this.yv += this.jumpHeight;
                 }
                 if(this.yv > 0 && vector[0] <= 0){
@@ -115,12 +126,14 @@ class Player{
                 
                 this.y += Math.round(vector[1]) * this.speed;
                 this.yv += -this.gravity;
-                this.x += this.yv;
+                this.xv = this.yv;
                 this.yv *= 0.99;
             }
             else if(this.gravityDirection == "right"){
                 this.rotation = -Math.PI/2;
                 if(vector[0] < 0 && this.grounded){
+                    this.grounded = false;
+                    test = true;
                     this.yv -= this.jumpHeight;
                 }
                 if(this.yv < 0 && vector[0] >= 0){
@@ -129,10 +142,14 @@ class Player{
                 
                 this.y += Math.round(vector[1]) * this.speed;
                 this.yv += this.gravity;
-                this.x += this.yv;
+                this.xv = this.yv;
                 this.yv *= 0.99;
             }
+
+            
+            this.x+=this.xv;
         }
+        
             
     }
 }
@@ -167,6 +184,7 @@ class AttackManager{
         this.sideswordTip = new image("sideswordTip.png");
         this.color = 'red';
         this.colortimer = 0;
+        this.platforms = [];
     }
     spawnPopupSwords(direction,length,duration,windup){
         this.popupSwords.push([direction,length,duration,duration,windup,0]);
@@ -183,7 +201,89 @@ class AttackManager{
     spawnSword(x,y,w,h,lifetime,vector,rotation){
         this.swords.push([x,y,w,h,lifetime,rotation,vector]);
     }
+    spawnPlatform(x,y,w,h,lifetime,vector,carryPlayer,collisionDirection){
+        this.platforms.push([x,y,w,h,lifetime,vector,carryPlayer,collisionDirection]);
+    }
     update(){
+        //platforms
+        for(var x of this.platforms){
+            x[0]+=x[5][0];
+            x[1]+=x[5][1];
+            if(player.mode=='blue'){
+                for(var x of this.platforms){
+                    //top and bottom collisions kind of condensed because i felt like it, idk why i did its just harder to read lmao
+                    if((player.gravityDirection =='down'&&x[7]=="top")||(player.gravityDirection =='up'&&x[7]=="bottom")){
+                        if(AABBCollision(x[0],x[1],x[2],x[3],player.x,player.y,player.w,player.h)){ // && !AABBCollision(x[0],x[1],x[2],x[3],player.oldx,player.oldy,player.w,player.h)){
+                            var moving = false;
+                            if(x[7]=='top'){
+                                if(player.oldy + player.h < x[1] && player.yv >= 0){
+                                    test = false;
+                                    player.yv=0
+                                    player.y = x[1] - player.h-0.0001; //not 100% sure why i need to subtract 0.0001 but hey, it works
+                                    player.oldy=player.y
+                                    moving = true;
+                                }
+                            }
+                            if(x[7]=='bottom'){
+                                if(player.oldy > x[1]+x[3] && player.yv <= 0){
+                                    test = false;
+                                    player.yv=0
+                                    player.y = x[1]+x[3]+0.0001;
+                                    player.oldy=player.y
+                                    moving = true;
+                                }
+                            }
+                            if(player.y>battleBox.y&&player.y + player.h < battleBox.y + battleBox.h){
+                                player.y+=x[5][1]
+                            }
+                            if(player.x>battleBox.x&&player.x + player.w < battleBox.x + battleBox.w){
+                                player.x+=x[5][0]
+                            }
+                        }
+                    }
+                    //right and left collisions
+                    if((player.gravityDirection =='left'&&x[7]=="right")||(player.gravityDirection =='right'&&x[7]=="left")){
+                        if(AABBCollision(x[0],x[1],x[2],x[3],player.x,player.y,player.w,player.h)){ //&& !AABBCollision(x[0],x[1],x[2],x[3],player.oldx,player.oldy,player.w,player.h)){
+                            var moving = false;
+                            if(x[7]=='left'){
+                                if(player.oldx+player.w*0.9  < x[0] && player.yv >= 0){
+                                    test = false;
+                                    console.log(player.yv)
+                                    player.x = x[0] - player.w-0.0001;
+                                    player.oldx=player.x
+                                    moving = true;
+                                }else{
+                                    console.log('hh')
+                                }
+                            }
+                            if(x[7]=='right'){
+                                if(player.oldx+player.w/10 > x[0]+x[2] && player.yv <= 0){
+                                    player.yv = 0;
+                                    test = false;
+                                    player.x = x[0]+x[2]+0.0001;
+                                    player.oldx=player.x
+                                    moving = true;
+                                }
+                            }
+                            if(moving){
+                                if(player.y>battleBox.y&&player.y + player.h < battleBox.y + battleBox.h){
+                                    player.y+=x[5][1]
+                                }
+                                if(player.x>battleBox.x&&player.x + player.w < battleBox.x + battleBox.w){
+                                    player.x+=x[5][0]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            x[4]--;
+            if(x[4]<0){
+                this.platforms = arrayRemove(this.platforms,x);
+            }
+        }
+        //
         //popup swords
         for(var x of this.popupSwords){
             if(x[2] < x[3] - x[4]){
@@ -277,8 +377,15 @@ class AttackManager{
         drawRect(battleBox.x+battleBox.w+4,0,w,h,"black",1,"black",1)
     }
     draw(){
-        //swords
-        
+        //platforms
+        for(var x of this.platforms){
+            if(x[6]){
+                var col = 'green'
+            }else{
+                var col = 'pink'
+            }
+            drawRect(x[0],x[1],x[2],x[3],col,false,0,1);
+        }
         //
         
         //popup swords
@@ -432,8 +539,8 @@ function drawBattleBox(){
     drawRect(battleBox.x,battleBox.y-4,battleBox.w+4,4,"white",1,"white",1,false);
     drawRect(battleBox.x,battleBox.y+battleBox.h,battleBox.w,4,"white",1,"white",1,false);
 }
+var test = true;
 function battleBoxCollisions(){
-    var test = true;
     if(player.x < battleBox.x){
         player.x = battleBox.x;
         if(player.gravityDirection=="left"){
@@ -472,11 +579,11 @@ function battleBoxCollisions(){
             screenShake(12,8);
         }
     }
+    test = true;
 }
 //draw and update functions
 
 var timer = 0;
-
 function drawOverlay(){
     var y = 470;
     //fight
@@ -586,7 +693,7 @@ function draw(){
     
 }
 
-var attacking = 0;
+var attacking = 1;
 var heartPos = [0,0]
 var actingMenu = [
     "Dream",0,
@@ -743,12 +850,98 @@ function main(){
         shakePos[1] = lerp(shakePos[1],0,0.4);
     }
     
+    atk17()
+
     
 }
 setInterval(main,1000/60);
 
-function atk12(){
+function atk17(){
+    if(timer == 1){
+        slam("left")
+    }
+    if(timer % 55 == 0){
+        num++
+        if(num%2==0){
+            attackManager.spawnSword(-80,battleBox.y,10,battleBox.h/4-5,1170,[1.9,0],Math.PI)
+        }else{
+            attackManager.spawnSword(-80,battleBox.y+battleBox.h-battleBox.h/4+5,10,battleBox.h/4-5,1170,[1.9,0],0)
 
+        }
+        attackManager.spawnPlatform(-80,battleBox.y+battleBox.h/2-40,10,80,10000,[1.9,0],true,'right')
+    }
+    if(timer%15==0){
+        attackManager.spawnSword(battleBox.x+battleBox.w-40,battleBox.y-20,40,10,170,[0,2],Math.PI*1.5)
+
+    }
+    
+}
+function atk16(){
+    if(timer==1){
+        slam('down');
+        attackManager.spawnPopupSwords('up',battleBox.h/2-20,100000,300)
+    }
+    if(timer % 55 == 0){
+        attackManager.spawnPlatform(-80,battleBox.y+battleBox.h/2+20,80,10,10000,[3,0],true,'top')
+    }
+    if(timer%15 == 0){
+        attackManager.spawnSword(battleBox.x-40,battleBox.y,10,battleBox.h/4,1170,[3,0],Math.PI)
+        
+    }
+}
+function atk15(){
+    if(timer==1){
+        slam("left")
+    }else if(timer==100){
+        player.mode = 'red'
+    }
+    if(timer%100==0){
+        attackManager.spawnPopupSwords('up',battleBox.h/2-4,100,80);
+        
+    }
+    if(timer%45==0){
+        attackManager.spawnSword(battleBox.x+battleBox.w,battleBox.y,10,battleBox.h/2,570,[-2.5,0],Math.PI)
+        attackManager.spawnSword(battleBox.x-40,battleBox.y,10,battleBox.h/2,1170,[.3,0],Math.PI)
+    }
+}
+function atk14(){
+    battleBox.x = lerp(battleBox.x,w/2-player.w*2,0.1)
+    battleBox.w = lerp(battleBox.w,player.w*4,0.1)
+    battleBox.h = lerp(battleBox.w,player.w*4,0.1)
+    if(timer%100==0){
+        if(Math.random()>0.5){
+            var temp1 = 'up'
+        }else{
+            var temp1 = 'down'
+        }
+        if(Math.random()>0.5){
+            var temp2 = 'left'
+        }else{
+            var temp2 = 'right'
+        }
+        attackManager.spawnPopupSwords(temp1,battleBox.h/2-4,100,80);
+        attackManager.spawnPopupSwords(temp2,battleBox.h/2-4,100,80);
+    }
+    
+}
+function atk13(){
+    if(timer%80==0){
+        num++;
+        if(num%2==0){
+            attackManager.spawnPopupSwords("up",battleBox.h/2,80,20);
+        }else{
+            attackManager.spawnPopupSwords("down",battleBox.h/2,80,20);
+        }
+    }
+}
+function atk12(){
+    if(timer%100==0){
+        attackManager.spawnAxeSlice(player.x+player.w/2,player.y+player.h/2,Math.PI*1.5)
+    }
+    if(timer%25==0){
+        attackManager.spawnArrow(battleBox.x-40,player.y+player.h/2,0)
+        attackManager.spawnArrow(battleBox.x+battleBox.w+40,player.y+player.h/2,Math.PI)
+    }
 }
 function atk11(){
     battleBox.x = lerp(battleBox.x,w/2-player.w,0.1)
